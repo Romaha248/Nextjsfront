@@ -11,12 +11,14 @@ import { loginUser } from "@/services/auth";
 import { loginSchema } from "@/zodSchemas/login";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
   const { setUser } = useAuth();
+  const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -27,11 +29,13 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
+      setServerError(null);
       const res = await loginUser(data.email, data.password);
       console.log("Logged in:", res);
       setUser(res.access_token);
       router.push("/todos");
     } catch (err) {
+      setServerError("Wrong email or password");
       console.error("Login failed:", err);
     }
   };
@@ -43,6 +47,11 @@ export default function LoginPage() {
           <CardTitle className="text-center text-2xl">Login</CardTitle>
         </CardHeader>
         <CardContent>
+          {serverError && (
+            <p className="text-red-600 text-sm mb-2 text-center">
+              {serverError}
+            </p>
+          )}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <Input type="email" placeholder="Email" {...register("email")} />

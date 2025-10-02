@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,19 +16,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import { Category } from "@/enums/category";
-import { createTodo, deleteTodo, getTodos, updateTodo } from "@/services/todo";
+import { createTodo, updateTodo, deleteTodo, getTodos } from "@/services/todo";
 import { Todo } from "@/interfaces/todo";
+import { todoSchema } from "@/zodSchemas/todos";
+
+type TodoFormData = z.infer<typeof todoSchema>;
 
 export default function TodosPage() {
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [categories, setCategories] = useState<Category>(Category.OTHER);
-  const [priority, setPriority] = useState<number>(1);
-  const [deadline, setDeadline] = useState<string>("");
-
+  const [todosList, setTodosList] = useState<Todo[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<TodoFormData>({
+    resolver: zodResolver(todoSchema),
+    defaultValues: {
+      todos: { categories: Category.OTHER, priority: 1, complete: false },
+    },
+  });
 
   useEffect(() => {
     loadTodos();
@@ -32,103 +48,60 @@ export default function TodosPage() {
 
   const loadTodos = async () => {
     try {
-      const todosFromServer = await getTodos();
-      setTodos(todosFromServer);
+      const data = await getTodos();
+      setTodosList(data);
     } catch (err) {
-      console.error("Failed to load todos:", (err as Error).message);
+      console.error("Failed to load todos:", err);
     }
   };
 
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setCategories(Category.OTHER);
-    setPriority(1);
-    setDeadline("");
-    setEditingTodoId(null);
-  };
-
-  const handleAddOrUpdateTodo = async () => {
-    if (!title.trim() || !deadline) return;
-
-    const [year, month, day] = deadline.split("-").map(Number);
-    const now = new Date();
-    const isoDeadline = new Date(
-      year,
-      month - 1,
-      day,
-      now.getHours(),
-      now.getMinutes(),
-      now.getSeconds(),
-      now.getMilliseconds()
-    ).toISOString();
-
+  const onSubmit = async (data: TodoFormData) => {
     try {
       if (editingTodoId) {
-        const updatedTodo = await updateTodo(editingTodoId, {
-          title,
-          description,
-          categories,
-          priority,
-          deadline: isoDeadline,
-        });
-        console.log(updatedTodo);
-        setTodos(todos.map((t) => (t.id === updatedTodo.id ? updatedTodo : t)));
+        const updated = await updateTodo(editingTodoId, data.todos);
+        setTodosList(todosList.map((t) => (t.id === updated.id ? updated : t)));
       } else {
-        const createdTodo = await createTodo({
-          title,
-          description,
-          categories,
-          priority,
-          deadline: isoDeadline,
-        });
-        console.log(createdTodo);
-        setTodos([createdTodo, ...todos]);
+        const created = await createTodo(data.todos);
+        setTodosList([created, ...todosList]);
       }
-      resetForm();
+      reset();
+      setEditingTodoId(null);
     } catch (err) {
-      console.error(
-        editingTodoId ? "Error updating todo:" : "Error creating todo:",
-        (err as Error).message
-      );
+      console.error("Error saving todo:", err);
     }
   };
 
   const handleEdit = (todo: Todo) => {
     setEditingTodoId(todo.id);
-    setTitle(todo.title);
-    setDescription(todo.description);
-    setCategories(todo.categories ?? Category.OTHER);
-    setPriority(todo.priority);
-    setDeadline(new Date(todo.deadline).toISOString().split("T")[0]);
-  };
-
-  const toggleTodo = async (todo: Todo) => {
-    try {
-      const updated = await updateTodo(todo.id, {
-        title: todo.title,
-        description: todo.description,
-        categories: todo.categories,
-        priority: todo.priority,
-        deadline: todo.deadline,
-        complete: !todo.complete,
-      });
-      console.log(updated);
-      setTodos(todos.map((t) => (t.id === updated.id ? updated : t)));
-    } catch (err) {
-      console.error("Failed to toggle todo:", (err as Error).message);
-    }
+    setValue("todos.title", todo.title);
+    setValue("todos.description", todo.description);
+    setValue("todos.categories", todo.categories ?? Category.OTHER);
+    setValue("todos.priority", todo.priority);
+    setValue(
+      "todos.deadline",
+      new Date(todo.deadline).toISOString().split("T")[0]
+    );
+    setValue("todos.complete", todo.complete ?? false);
   };
 
   const deleteTodoById = async (id: string) => {
     try {
-      const deleted = await deleteTodo(id);
-      if (deleted) {
-        console.log(`Todo ${id} deleted successfully`);
-        setTodos((prevTodos) => prevTodos.filter((t) => t.id !== id));
-      }
+      await deleteTodo(id);
+      setTodosList((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
-      console.error("Failed to toggle todo:", (err as Error).message);
+      console.error("Failed to delete todo:", err);
+    }
+  };
+
+  const toggleComplete = async (todo: Todo) => {
+    try {
+      const updated = await updateTodo(todo.id, {
+        ...todo,
+        complete: !todo.complete,
+      });
+      setTodosList(todosList.map((t) => (t.id === updated.id ? updated : t)));
+    } catch (err) {
+      console.error("Failed to toggle complete:", err);
     }
   };
 
@@ -141,21 +114,33 @@ export default function TodosPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-2 mb-6">
-            <Input
-              placeholder="Todo title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="flex flex-col gap-2 mb-6"
+          >
+            <Input placeholder="Todo title..." {...register("todos.title")} />
+            {errors.todos?.title && (
+              <p className="text-red-600 text-sm">
+                {errors.todos.title.message}
+              </p>
+            )}
+
             <Input
               placeholder="Description..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register("todos.description")}
             />
-            <div className="flex gap-2">
+            {errors.todos?.description && (
+              <p className="text-red-600 text-sm">
+                {errors.todos.description.message}
+              </p>
+            )}
+
+            <div className="flex gap-2 items-center">
               <Select
-                value={categories}
-                onValueChange={(value) => setCategories(value as Category)}
+                value={watch("todos.categories")}
+                onValueChange={(v) =>
+                  setValue("todos.categories", v as Category)
+                }
               >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Category" />
@@ -163,54 +148,41 @@ export default function TodosPage() {
                 <SelectContent>
                   {Object.values(Category).map((cat) => (
                     <SelectItem key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={String(priority)}
-                onValueChange={(value) => setPriority(Number(value))}
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((p) => (
-                    <SelectItem key={p} value={String(p)}>
-                      {p}
+                      {cat}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Input
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
+                type="number"
+                min={1}
+                max={10}
+                {...register("todos.priority", { valueAsNumber: true })}
+                placeholder="Priority"
               />
 
-              <Button
-                onClick={handleAddOrUpdateTodo}
-                className="cursor-pointer"
-              >
-                {editingTodoId ? "Update" : "Add"}
-              </Button>
+              <Input type="date" {...register("todos.deadline")} />
+
+              <Button type="submit">{editingTodoId ? "Update" : "Add"}</Button>
             </div>
-          </div>
+            {errors.todos?.deadline && (
+              <p className="text-red-600 text-sm">
+                {errors.todos.deadline.message}
+              </p>
+            )}
+          </form>
 
           <ul className="space-y-3">
-            {todos.map((todo) => (
+            {todosList.map((todo) => (
               <li
                 key={todo.id}
                 className="flex items-center justify-between p-2 border rounded-lg bg-white"
               >
                 <div className="flex items-center gap-2">
                   <Checkbox
-                    className="cursor-pointer"
                     checked={todo.complete ?? false}
-                    onCheckedChange={() => toggleTodo(todo)}
+                    onCheckedChange={() => toggleComplete(todo)}
                   />
                   <div>
                     <span
@@ -229,7 +201,6 @@ export default function TodosPage() {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    className="cursor-pointer"
                     variant="secondary"
                     size="sm"
                     onClick={() => handleEdit(todo)}
@@ -237,7 +208,6 @@ export default function TodosPage() {
                     Edit
                   </Button>
                   <Button
-                    className="cursor-pointer"
                     variant="destructive"
                     size="sm"
                     onClick={() => deleteTodoById(todo.id)}
