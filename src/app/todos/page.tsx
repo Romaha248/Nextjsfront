@@ -37,9 +37,7 @@ export default function TodosPage() {
     formState: { errors },
   } = useForm<TodoFormData>({
     resolver: zodResolver(todoSchema),
-    defaultValues: {
-      todos: { categories: Category.OTHER, priority: 1, complete: false },
-    },
+    defaultValues: { categories: Category.OTHER, priority: 1, complete: false },
   });
 
   useEffect(() => {
@@ -56,12 +54,17 @@ export default function TodosPage() {
   };
 
   const onSubmit = async (data: TodoFormData) => {
+    const payload = {
+      ...data,
+      deadline: new Date(data.deadline).toISOString(),
+    };
+
     try {
       if (editingTodoId) {
-        const updated = await updateTodo(editingTodoId, data.todos);
+        const updated = await updateTodo(editingTodoId, payload);
         setTodosList(todosList.map((t) => (t.id === updated.id ? updated : t)));
       } else {
-        const created = await createTodo(data.todos);
+        const created = await createTodo(payload);
         setTodosList([created, ...todosList]);
       }
       reset();
@@ -73,15 +76,12 @@ export default function TodosPage() {
 
   const handleEdit = (todo: Todo) => {
     setEditingTodoId(todo.id);
-    setValue("todos.title", todo.title);
-    setValue("todos.description", todo.description);
-    setValue("todos.categories", todo.categories ?? Category.OTHER);
-    setValue("todos.priority", todo.priority);
-    setValue(
-      "todos.deadline",
-      new Date(todo.deadline).toISOString().split("T")[0]
-    );
-    setValue("todos.complete", todo.complete ?? false);
+    setValue("title", todo.title);
+    setValue("description", todo.description);
+    setValue("categories", todo.categories ?? Category.OTHER);
+    setValue("priority", todo.priority);
+    setValue("deadline", new Date(todo.deadline).toISOString().split("T")[0]);
+    setValue("complete", todo.complete ?? false);
   };
 
   const deleteTodoById = async (id: string) => {
@@ -118,29 +118,22 @@ export default function TodosPage() {
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-2 mb-6"
           >
-            <Input placeholder="Todo title..." {...register("todos.title")} />
-            {errors.todos?.title && (
-              <p className="text-red-600 text-sm">
-                {errors.todos.title.message}
-              </p>
+            <Input placeholder="Todo title..." {...register("title")} />
+            {errors.title && (
+              <p className="text-red-600 text-sm">{errors.title.message}</p>
             )}
 
-            <Input
-              placeholder="Description..."
-              {...register("todos.description")}
-            />
-            {errors.todos?.description && (
+            <Input placeholder="Description..." {...register("description")} />
+            {errors.description && (
               <p className="text-red-600 text-sm">
-                {errors.todos.description.message}
+                {errors.description.message}
               </p>
             )}
 
             <div className="flex gap-2 items-center">
               <Select
-                value={watch("todos.categories")}
-                onValueChange={(v) =>
-                  setValue("todos.categories", v as Category)
-                }
+                value={watch("categories")}
+                onValueChange={(v) => setValue("categories", v as Category)}
               >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Category" />
@@ -158,18 +151,16 @@ export default function TodosPage() {
                 type="number"
                 min={1}
                 max={10}
-                {...register("todos.priority", { valueAsNumber: true })}
+                {...register("priority", { valueAsNumber: true })}
                 placeholder="Priority"
               />
 
-              <Input type="date" {...register("todos.deadline")} />
+              <Input type="date" {...register("deadline")} />
 
               <Button type="submit">{editingTodoId ? "Update" : "Add"}</Button>
             </div>
-            {errors.todos?.deadline && (
-              <p className="text-red-600 text-sm">
-                {errors.todos.deadline.message}
-              </p>
+            {errors.deadline && (
+              <p className="text-red-600 text-sm">{errors.deadline.message}</p>
             )}
           </form>
 
