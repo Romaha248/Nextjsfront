@@ -29,6 +29,7 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useDebounce } from "@/hooks/useDebounce";
 
 type TodoFormData = z.infer<typeof todoSchema>;
 
@@ -40,6 +41,7 @@ export default function TodosPage() {
     sort_order: "asc",
     search: "",
   });
+  const debouncedSearch = useDebounce(filters.search, 500);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -69,7 +71,7 @@ export default function TodosPage() {
         const query = new URLSearchParams();
         if (filters.category) query.append("category", filters.category);
         if (filters.sort_order) query.append("sort_order", filters.sort_order);
-        if (filters.search) query.append("search", filters.search);
+        if (debouncedSearch) query.append("search", debouncedSearch);
 
         const data = await getTodos(`?${query.toString()}`);
         setTodosList(data);
@@ -79,7 +81,7 @@ export default function TodosPage() {
     };
 
     fetchTodos();
-  }, [filters]);
+  }, [filters.category, filters.sort_order, debouncedSearch]);
 
   const clearFilters = () => {
     setFilters({
@@ -125,6 +127,9 @@ export default function TodosPage() {
     try {
       await deleteTodo(id);
       setTodosList((prev) => prev.filter((t) => t.id !== id));
+      if (editingTodoId == id) {
+        setEditingTodoId(null);
+      }
     } catch (err) {
       console.error("Failed to delete todo:", err);
     }

@@ -7,13 +7,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Category } from "@/enums/category";
 import { Todo } from "@/interfaces/todo";
 
-// Drag & Drop
 import {
   DragDropContext,
   Droppable,
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
+import Link from "next/link";
 
 export default function TodosPage() {
   const [todos, setTodos] = useState<Todo[]>([
@@ -58,9 +58,6 @@ export default function TodosPage() {
     setTodos((prev) => prev.filter((todo) => todo.id !== id));
   };
 
-  // --------------------
-  // Handle drag end
-  // --------------------
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -72,10 +69,30 @@ export default function TodosPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-6">
-      <Card className="w-full max-w-lg shadow-xl">
+    <div className="flex flex-col items-center min-h-screen bg-gray-50 p-6 gap-4">
+      <div className="w-full max-w-lg bg-gray-100 p-4 rounded-lg text-center border border-gray-200">
+        <p className="mb-2 text-gray-800">
+          Welcome! Please{" "}
+          <Link
+            href="/login"
+            className="text-gray-700 font-semibold underline hover:text-gray-900"
+          >
+            login
+          </Link>{" "}
+          if you already have an account, or{" "}
+          <Link
+            href="/register"
+            className="text-gray-700 font-semibold underline hover:text-gray-900"
+          >
+            create your account
+          </Link>{" "}
+          to get started!
+        </p>
+      </div>
+
+      <Card className="w-full max-w-lg shadow-md border border-gray-200">
         <CardHeader>
-          <CardTitle className="text-center text-2xl">
+          <CardTitle className="text-center text-2xl text-gray-800">
             Welcome to My Todos App
           </CardTitle>
         </CardHeader>
@@ -114,7 +131,7 @@ export default function TodosPage() {
                                 className={
                                   todo.complete
                                     ? "line-through text-gray-500"
-                                    : ""
+                                    : "text-gray-800"
                                 }
                               >
                                 {todo.title}
@@ -122,22 +139,17 @@ export default function TodosPage() {
                               <p className="text-sm text-gray-600">
                                 {todo.description}
                               </p>
-                              <span className="ml-2 text-sm text-gray-400">
+                              <span className="ml-2 text-sm text-gray-500">
                                 [{todo.categories}] P{todo.priority} -{" "}
                                 {new Date(todo.deadline).toLocaleDateString()}
                               </span>
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Button
-                              className="cursor-pointer"
-                              variant="secondary"
-                              size="sm"
-                            >
+                            <Button variant="secondary" size="sm">
                               Edit
                             </Button>
                             <Button
-                              className="cursor-pointer"
                               variant="destructive"
                               size="sm"
                               onClick={() => deleteTodo(todo.id)}

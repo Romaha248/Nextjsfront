@@ -10,11 +10,13 @@ import Link from "next/link";
 import { registerUser } from "@/services/auth";
 import { registerSchema } from "@/zodSchemas/register";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const {
     register,
@@ -26,11 +28,17 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
+      setServerError(null);
       const res = await registerUser(data.email, data.username, data.password);
       console.log("Registered successfully:", res);
 
       router.push("/login");
-    } catch (err) {
+    } catch (err: unknown) {
+      let msg = "Registration failed. Try again.";
+      if (err instanceof Error) {
+        msg = err.message;
+      }
+      setServerError(msg);
       console.error("Failed to register:", err);
     }
   };
@@ -75,6 +83,10 @@ export default function RegisterPage() {
                 </p>
               )}
             </div>
+
+            {serverError && (
+              <p className="text-red-600 text-sm text-center">{serverError}</p>
+            )}
 
             <Button type="submit" className="w-full">
               Sign Up

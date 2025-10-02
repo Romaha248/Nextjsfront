@@ -1,3 +1,5 @@
+import Cookies from "js-cookie";
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export async function registerUser(
@@ -12,9 +14,9 @@ export async function registerUser(
   });
 
   if (!res.ok) {
-    const err = await res.text();
+    const err = await res.json().catch(() => null);
     console.error("Backend error:", err);
-    throw new Error("Failed to register");
+    throw new Error(err?.detail || "Something went wrong");
   }
 
   return res.json();
@@ -37,17 +39,22 @@ export async function loginUser(username: string, password: string) {
     throw new Error("Failed to login");
   }
   const data = await res.json();
-  localStorage.setItem("access_token", data.access_token);
+
+  const expiresAt = new Date().getTime() + 15 * 60 * 1000;
+  Cookies.set("access_token", data.access_token, {
+    expires: new Date(expiresAt),
+  });
+  Cookies.set("expires_at", expiresAt.toString());
 
   return data;
 }
 
 export function getAccessToken() {
-  return localStorage.getItem("access_token");
+  return Cookies.get("access_token");
 }
 
 export function logoutUser() {
-  localStorage.removeItem("access_token");
+  Cookies.remove("access_token");
 }
 
 async function refreshAccessToken() {
@@ -63,7 +70,12 @@ async function refreshAccessToken() {
     }
 
     const data = await res.json();
-    localStorage.setItem("access_token", data.access_token);
+
+    const expiresAt = new Date().getTime() + 15 * 60 * 1000;
+    Cookies.set("access_token", data.access_token, {
+      expires: new Date(expiresAt),
+    });
+    Cookies.set("expires_at", expiresAt.toString());
     return true;
   } catch (err) {
     console.error("Refresh token failed", err);
