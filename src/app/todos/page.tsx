@@ -63,8 +63,22 @@ export default function TodosPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    loadTodos();
-  }, [searchParams]);
+    const fetchTodos = async () => {
+      try {
+        const query = new URLSearchParams();
+        if (filters.category) query.append("category", filters.category);
+        if (filters.sort_order) query.append("sort_order", filters.sort_order);
+        if (filters.search) query.append("search", filters.search);
+
+        const data = await getTodos(`?${query.toString()}`);
+        setTodosList(data);
+      } catch (err) {
+        console.error("Failed to load todos:", err);
+      }
+    };
+
+    fetchTodos();
+  }, [searchParams, filters]);
 
   const applyFilters = () => {
     const params = new URLSearchParams();
@@ -83,20 +97,6 @@ export default function TodosPage() {
     });
 
     router.push("/todos");
-  };
-
-  const loadTodos = async () => {
-    try {
-      const query = new URLSearchParams();
-      if (filters.category) query.append("category", filters.category);
-      if (filters.sort_order) query.append("sort_order", filters.sort_order);
-      if (filters.search) query.append("search", filters.search);
-
-      const data = await getTodos(`?${query.toString()}`);
-      setTodosList(data);
-    } catch (err) {
-      console.error("Failed to load todos:", err);
-    }
   };
 
   const onSubmit = async (data: TodoFormData) => {
@@ -170,7 +170,6 @@ export default function TodosPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Filter controls */}
           <div className="flex gap-2 mb-4">
             <Select
               value={filters.category}
@@ -180,7 +179,6 @@ export default function TodosPage() {
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                {/* <SelectItem value="">All</SelectItem> */}
                 {Object.values(Category).map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -213,7 +211,6 @@ export default function TodosPage() {
             <Button onClick={applyFilters}>Apply</Button>
           </div>
 
-          {/* Todo form */}
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-2 mb-6"
