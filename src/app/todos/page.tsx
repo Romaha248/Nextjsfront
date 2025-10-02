@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -162,75 +162,19 @@ export default function TodosPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-6">
-      <Card className="w-full max-w-lg shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">
-            {editingTodoId ? "Edit Todo" : "My Todos"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Select
-              value={filters.category}
-              onValueChange={(v) => setFilters({ ...filters, category: v })}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.values(Category).map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filters.sort_order}
-              onValueChange={(v) => setFilters({ ...filters, sort_order: v })}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Sort Order" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">Ascending</SelectItem>
-                <SelectItem value="desc">Descending</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Input
-              placeholder="Search..."
-              value={filters.search}
-              onChange={(e) =>
-                setFilters({ ...filters, search: e.target.value })
-              }
-            />
-
-            <Button onClick={applyFilters}>Apply</Button>
-          </div>
-
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col gap-2 mb-6"
-          >
-            <Input placeholder="Todo title..." {...register("title")} />
-            {errors.title && (
-              <p className="text-red-600 text-sm">{errors.title.message}</p>
-            )}
-
-            <Input placeholder="Description..." {...register("description")} />
-            {errors.description && (
-              <p className="text-red-600 text-sm">
-                {errors.description.message}
-              </p>
-            )}
-
-            <div className="flex gap-2 items-center">
+    <Suspense fallback={<div>Loading...</div>}>
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 p-6">
+        <Card className="w-full max-w-lg shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-center text-2xl">
+              {editingTodoId ? "Edit Todo" : "My Todos"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 mb-4">
               <Select
-                value={watch("categories")}
-                onValueChange={(v) => setValue("categories", v as Category)}
+                value={filters.category}
+                onValueChange={(v) => setFilters({ ...filters, category: v })}
               >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Category" />
@@ -244,100 +188,165 @@ export default function TodosPage() {
                 </SelectContent>
               </Select>
 
+              <Select
+                value={filters.sort_order}
+                onValueChange={(v) => setFilters({ ...filters, sort_order: v })}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Sort Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Input
-                type="number"
-                min={1}
-                max={10}
-                {...register("priority", { valueAsNumber: true })}
-                placeholder="Priority"
+                placeholder="Search..."
+                value={filters.search}
+                onChange={(e) =>
+                  setFilters({ ...filters, search: e.target.value })
+                }
               />
 
-              <Input type="date" {...register("deadline")} />
-
-              <Button type="submit">{editingTodoId ? "Update" : "Add"}</Button>
+              <Button onClick={applyFilters}>Apply</Button>
             </div>
-            {errors.deadline && (
-              <p className="text-red-600 text-sm">{errors.deadline.message}</p>
-            )}
-          </form>
 
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="todos">
-              {(provided) => (
-                <ul
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className="space-y-3"
-                >
-                  {todosList.map((todo, index) => (
-                    <Draggable
-                      key={todo.id}
-                      draggableId={todo.id}
-                      index={index}
-                    >
-                      {(provided, snapshot) => (
-                        <li
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          className={`flex items-center justify-between p-2 border rounded-lg bg-white ${
-                            snapshot.isDragging ? "bg-gray-200" : ""
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={todo.complete ?? false}
-                              onCheckedChange={() => toggleComplete(todo)}
-                            />
-                            <div>
-                              <span
-                                className={
-                                  todo.complete
-                                    ? "line-through text-gray-500"
-                                    : ""
-                                }
-                              >
-                                {todo.title}
-                              </span>
-                              <p className="text-sm text-gray-600">
-                                {todo.description}
-                              </p>
-                              <span className="ml-2 text-sm text-gray-400">
-                                [{todo.categories}] P{todo.priority} -{" "}
-                                {new Date(todo.deadline).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleEdit(todo)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => deleteTodoById(todo.id)}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </li>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </ul>
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="flex flex-col gap-2 mb-6"
+            >
+              <Input placeholder="Todo title..." {...register("title")} />
+              {errors.title && (
+                <p className="text-red-600 text-sm">{errors.title.message}</p>
               )}
-            </Droppable>
-          </DragDropContext>
-          <Button variant="secondary" onClick={clearFilters} className="mt-5">
-            Clear Filters
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+
+              <Input
+                placeholder="Description..."
+                {...register("description")}
+              />
+              {errors.description && (
+                <p className="text-red-600 text-sm">
+                  {errors.description.message}
+                </p>
+              )}
+
+              <div className="flex gap-2 items-center">
+                <Select
+                  value={watch("categories")}
+                  onValueChange={(v) => setValue("categories", v as Category)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(Category).map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  {...register("priority", { valueAsNumber: true })}
+                  placeholder="Priority"
+                />
+
+                <Input type="date" {...register("deadline")} />
+
+                <Button type="submit">
+                  {editingTodoId ? "Update" : "Add"}
+                </Button>
+              </div>
+              {errors.deadline && (
+                <p className="text-red-600 text-sm">
+                  {errors.deadline.message}
+                </p>
+              )}
+            </form>
+
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="todos">
+                {(provided) => (
+                  <ul
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="space-y-3"
+                  >
+                    {todosList.map((todo, index) => (
+                      <Draggable
+                        key={todo.id}
+                        draggableId={todo.id}
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <li
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`flex items-center justify-between p-2 border rounded-lg bg-white ${
+                              snapshot.isDragging ? "bg-gray-200" : ""
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={todo.complete ?? false}
+                                onCheckedChange={() => toggleComplete(todo)}
+                              />
+                              <div>
+                                <span
+                                  className={
+                                    todo.complete
+                                      ? "line-through text-gray-500"
+                                      : ""
+                                  }
+                                >
+                                  {todo.title}
+                                </span>
+                                <p className="text-sm text-gray-600">
+                                  {todo.description}
+                                </p>
+                                <span className="ml-2 text-sm text-gray-400">
+                                  [{todo.categories}] P{todo.priority} -{" "}
+                                  {new Date(todo.deadline).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleEdit(todo)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => deleteTodoById(todo.id)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </li>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </ul>
+                )}
+              </Droppable>
+            </DragDropContext>
+            <Button variant="secondary" onClick={clearFilters} className="mt-5">
+              Clear Filters
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </Suspense>
   );
 }
