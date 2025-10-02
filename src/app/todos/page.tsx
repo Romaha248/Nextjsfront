@@ -22,11 +22,26 @@ import { createTodo, updateTodo, deleteTodo, getTodos } from "@/services/todo";
 import { Todo } from "@/interfaces/todo";
 import { todoSchema } from "@/zodSchemas/todos";
 
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "@hello-pangea/dnd";
+import { useRouter, useSearchParams } from "next/navigation";
+
 type TodoFormData = z.infer<typeof todoSchema>;
 
 export default function TodosPage() {
   const [todosList, setTodosList] = useState<Todo[]>([]);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [filters, setFilters] = useState({
+    category: "" as string,
+    sort_order: "asc",
+    search: "",
+  });
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const {
     register,
@@ -41,12 +56,43 @@ export default function TodosPage() {
   });
 
   useEffect(() => {
+    const category = searchParams.get("category") || "";
+    const sort_order = searchParams.get("sort_order") || "asc";
+    const search = searchParams.get("search") || "";
+    setFilters({ category, sort_order, search });
+  }, [searchParams]);
+
+  useEffect(() => {
     loadTodos();
-  }, []);
+  }, [searchParams]);
+
+  const applyFilters = () => {
+    const params = new URLSearchParams();
+    if (filters.category) params.append("category", filters.category);
+    if (filters.sort_order) params.append("sort_order", filters.sort_order);
+    if (filters.search) params.append("search", filters.search);
+
+    router.push(`/todos?${params.toString()}`);
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      category: "",
+      sort_order: "asc",
+      search: "",
+    });
+
+    router.push("/todos");
+  };
 
   const loadTodos = async () => {
     try {
-      const data = await getTodos();
+      const query = new URLSearchParams();
+      if (filters.category) query.append("category", filters.category);
+      if (filters.sort_order) query.append("sort_order", filters.sort_order);
+      if (filters.search) query.append("search", filters.search);
+
+      const data = await getTodos(`?${query.toString()}`);
       setTodosList(data);
     } catch (err) {
       console.error("Failed to load todos:", err);
@@ -105,6 +151,16 @@ export default function TodosPage() {
     }
   };
 
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(todosList);
+    const [reordered] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reordered);
+
+    setTodosList(items);
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 p-6">
       <Card className="w-full max-w-lg shadow-xl">
@@ -114,6 +170,50 @@ export default function TodosPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Filter controls */}
+          <div className="flex gap-2 mb-4">
+            <Select
+              value={filters.category}
+              onValueChange={(v) => setFilters({ ...filters, category: v })}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {/* <SelectItem value="">All</SelectItem> */}
+                {Object.values(Category).map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={filters.sort_order}
+              onValueChange={(v) => setFilters({ ...filters, sort_order: v })}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Sort Order" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asc">Ascending</SelectItem>
+                <SelectItem value="desc">Descending</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input
+              placeholder="Search..."
+              value={filters.search}
+              onChange={(e) =>
+                setFilters({ ...filters, search: e.target.value })
+              }
+            />
+
+            <Button onClick={applyFilters}>Apply</Button>
+          </div>
+
+          {/* Todo form */}
           <form
             onSubmit={handleSubmit(onSubmit)}
             className="flex flex-col gap-2 mb-6"
@@ -164,51 +264,81 @@ export default function TodosPage() {
             )}
           </form>
 
-          <ul className="space-y-3">
-            {todosList.map((todo) => (
-              <li
-                key={todo.id}
-                className="flex items-center justify-between p-2 border rounded-lg bg-white"
-              >
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={todo.complete ?? false}
-                    onCheckedChange={() => toggleComplete(todo)}
-                  />
-                  <div>
-                    <span
-                      className={
-                        todo.complete ? "line-through text-gray-500" : ""
-                      }
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="todos">
+              {(provided) => (
+                <ul
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="space-y-3"
+                >
+                  {todosList.map((todo, index) => (
+                    <Draggable
+                      key={todo.id}
+                      draggableId={todo.id}
+                      index={index}
                     >
-                      {todo.title}
-                    </span>
-                    <p className="text-sm text-gray-600">{todo.description}</p>
-                    <span className="ml-2 text-sm text-gray-400">
-                      [{todo.categories}] P{todo.priority} -{" "}
-                      {new Date(todo.deadline).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleEdit(todo)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => deleteTodoById(todo.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                      {(provided, snapshot) => (
+                        <li
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className={`flex items-center justify-between p-2 border rounded-lg bg-white ${
+                            snapshot.isDragging ? "bg-gray-200" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={todo.complete ?? false}
+                              onCheckedChange={() => toggleComplete(todo)}
+                            />
+                            <div>
+                              <span
+                                className={
+                                  todo.complete
+                                    ? "line-through text-gray-500"
+                                    : ""
+                                }
+                              >
+                                {todo.title}
+                              </span>
+                              <p className="text-sm text-gray-600">
+                                {todo.description}
+                              </p>
+                              <span className="ml-2 text-sm text-gray-400">
+                                [{todo.categories}] P{todo.priority} -{" "}
+                                {new Date(todo.deadline).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleEdit(todo)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => deleteTodoById(todo.id)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </li>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </ul>
+              )}
+            </Droppable>
+          </DragDropContext>
+          <Button variant="secondary" onClick={clearFilters} className="mt-5">
+            Clear Filters
+          </Button>
         </CardContent>
       </Card>
     </div>

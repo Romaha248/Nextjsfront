@@ -25,8 +25,9 @@ export interface UpdateTodoRequest {
 
 export type UpdateTodoResponse = Todo;
 
-export async function getTodos(): Promise<Todo[]> {
-  const res = await fetchWithAuth("/todos/all-todo", {
+export async function getTodos(queryParams: string = ""): Promise<Todo[]> {
+  const url = `/todos/all-todo${queryParams}`;
+  const res = await fetchWithAuth(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
