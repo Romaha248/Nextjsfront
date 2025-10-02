@@ -81,15 +81,6 @@ export default function TodosPage() {
     fetchTodos();
   }, [filters]);
 
-  const applyFilters = () => {
-    const params = new URLSearchParams();
-    if (filters.category) params.append("category", filters.category);
-    if (filters.sort_order) params.append("sort_order", filters.sort_order);
-    if (filters.search) params.append("search", filters.search);
-
-    router.push(`/todos?${params.toString()}`);
-  };
-
   const clearFilters = () => {
     setFilters({
       category: "",
@@ -208,7 +199,6 @@ export default function TodosPage() {
               }
             />
 
-            <Button onClick={applyFilters}>Apply</Button>
             <Button variant="secondary" onClick={clearFilters}>
               Clear
             </Button>
